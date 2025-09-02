@@ -1,6 +1,7 @@
 import os
+import re
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -10,9 +11,9 @@ DEFAULT_HEIGHT = 1440
 DEFAULT_BG = (255, 255, 255)
 DEFAULT_TEXT_COLOR = (20, 20, 20)
 
-SIDE_MARGIN_RATIO = 0.06
-TOP_BOTTOM_MARGIN_RATIO = 0.06
-LINE_SPACING_RATIO = 0.35
+SIDE_MARGIN_RATIO = 0.08
+TOP_BOTTOM_MARGIN_RATIO = 0.08
+LINE_SPACING_RATIO = 0.5
 MAX_LINE_WIDTH_RATIO = 1.0 - (SIDE_MARGIN_RATIO * 2)
 
 FONT_CANDIDATES = [
@@ -35,8 +36,8 @@ class RenderOptions:
 	background: Tuple[int, int, int] = DEFAULT_BG
 	text_color: Tuple[int, int, int] = DEFAULT_TEXT_COLOR
 	align: str = "center"
-	max_font_size: int = 400
-	min_font_size: int = 200
+	max_font_size: int = 80
+	min_font_size: int = 40
 	bold: bool = False
 
 
@@ -51,6 +52,47 @@ def load_font(preferred_size: int, bold: bool = False) -> ImageFont.FreeTypeFont
 		return ImageFont.load_default(size=preferred_size)
 	except:
 		return ImageFont.load_default()
+
+
+@dataclass
+class TextSegment:
+	text: str
+	is_bold: bool = False
+	is_header: bool = False
+	header_level: int = 0
+
+
+def parse_markdown(md_text: str) -> List[TextSegment]:
+	"""简单的 Markdown 解析，支持标题和加粗"""
+	segments = []
+	lines = md_text.split('\n')
+	
+	for line in lines:
+		line = line.strip()
+		if not line:
+			continue
+			
+		# 处理标题
+		if line.startswith('#'):
+			header_match = re.match(r'^(#{1,6})\s*(.*)', line)
+			if header_match:
+				level = len(header_match.group(1))
+				text = header_match.group(2)
+				segments.append(TextSegment(text, is_header=True, header_level=level))
+				continue
+		
+		# 处理加粗文本
+		parts = re.split(r'(\*\*.*?\*\*)', line)
+		for part in parts:
+			if part.startswith('**') and part.endswith('**'):
+				# 去掉 ** 标记，设置为加粗
+				bold_text = part[2:-2]
+				if bold_text:
+					segments.append(TextSegment(bold_text, is_bold=True))
+			elif part:
+				segments.append(TextSegment(part))
+	
+	return segments
 
 
 def _measure_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont) -> Tuple[int, int]:
@@ -95,7 +137,7 @@ def measure_wrapped_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.F
 def auto_fit_font_size(text: str, options: RenderOptions):
 	img = Image.new("RGB", (options.width, options.height), options.background)
 	draw = ImageDraw.Draw(img)
-	for size in range(options.max_font_size, options.min_font_size - 1, -4):
+	for size in range(options.max_font_size, options.min_font_size - 1, -2):
 		font = load_font(size, options.bold)
 		wrapped, max_w, line_h, num_lines = measure_wrapped_text(
 			draw, text, font, int(options.width * (1 - 2 * SIDE_MARGIN_RATIO))
@@ -115,18 +157,69 @@ def auto_fit_font_size(text: str, options: RenderOptions):
 def render_markdown_text_to_image(md_text: str, options: Optional[RenderOptions] = None) -> Image.Image:
 	if options is None:
 		options = RenderOptions()
-	font, wrapped, max_w, line_h, num_lines, line_spacing = auto_fit_font_size(md_text, options)
+	
+	# 解析 Markdown
+	segments = parse_markdown(md_text)
+	
 	img = Image.new("RGB", (options.width, options.height), options.background)
 	draw = ImageDraw.Draw(img)
-	total_text_h = num_lines * line_h + (num_lines - 1) * line_spacing
-	start_y = (options.height - total_text_h) // 2
+	
+	# 计算基础字体大小
+	base_font_size = options.min_font_size + (options.max_font_size - options.min_font_size) // 2
+	
+	y_offset = int(options.height * TOP_BOTTOM_MARGIN_RATIO)
 	x_left = int(options.width * SIDE_MARGIN_RATIO)
-	for i, ln in enumerate(wrapped.split('\n')):
-		w, _ = _measure_text(draw, ln, font)
-		if options.align == "center":
-			x = (options.width - w) // 2
+	max_width = int(options.width * (1 - 2 * SIDE_MARGIN_RATIO))
+	
+	for segment in segments:
+		# 根据段落类型确定字体大小和样式
+		if segment.is_header:
+			font_size = min(base_font_size + (4 - segment.header_level) * 8, options.max_font_size)
+			is_bold = True
+		elif segment.is_bold:
+			font_size = base_font_size
+			is_bold = True
 		else:
-			x = x_left
-		y = start_y + i * (line_h + line_spacing)
-		draw.text((x, y), ln, fill=options.text_color, font=font)
+			font_size = base_font_size
+			is_bold = False
+		
+		# 加载字体
+		font = load_font(font_size, is_bold)
+		
+		# 文字换行处理
+		wrapped_lines = []
+		words = segment.text.split()
+		current_line = ""
+		
+		for word in words:
+			test_line = current_line + (" " if current_line else "") + word
+			w, _ = _measure_text(draw, test_line, font)
+			if w <= max_width:
+				current_line = test_line
+			else:
+				if current_line:
+					wrapped_lines.append(current_line)
+					current_line = word
+				else:
+					wrapped_lines.append(word)
+		if current_line:
+			wrapped_lines.append(current_line)
+		
+		# 绘制文本
+		line_height = font.getbbox("Hg")[3] - font.getbbox("Hg")[1]
+		line_spacing = int(font_size * 0.3)
+		
+		for line in wrapped_lines:
+			w, _ = _measure_text(draw, line, font)
+			if options.align == "center":
+				x = (options.width - w) // 2
+			else:
+				x = x_left
+			
+			draw.text((x, y_offset), line, fill=options.text_color, font=font)
+			y_offset += line_height + line_spacing
+		
+		# 段落间距
+		y_offset += int(font_size * 0.4)
+	
 	return img
