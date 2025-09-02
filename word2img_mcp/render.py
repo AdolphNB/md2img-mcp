@@ -74,16 +74,24 @@ class TextSegment:
 	is_bold: bool = False
 	is_header: bool = False
 	header_level: int = 0
+	is_table: bool = False
+	table_data: List[List[str]] = None
+
+	def __post_init__(self):
+		if self.table_data is None:
+			self.table_data = []
 
 
 def parse_markdown(md_text: str) -> List[TextSegment]:
-	"""简单的 Markdown 解析，支持标题和加粗"""
+	"""Markdown 解析，支持标题、加粗和表格"""
 	segments = []
 	lines = md_text.split('\n')
+	i = 0
 	
-	for line in lines:
-		line = line.strip()
+	while i < len(lines):
+		line = lines[i].strip()
 		if not line:
+			i += 1
 			continue
 			
 		# 处理标题
@@ -93,20 +101,109 @@ def parse_markdown(md_text: str) -> List[TextSegment]:
 				level = len(header_match.group(1))
 				text = header_match.group(2)
 				segments.append(TextSegment(text, is_header=True, header_level=level))
+				i += 1
 				continue
 		
-		# 处理加粗文本 - 改进版本
+		# 检测表格
+		if '|' in line:
+			table_data = []
+			# 收集表格行
+			while i < len(lines) and lines[i].strip():
+				table_line = lines[i].strip()
+				if '|' in table_line:
+					# 解析表格行
+					cells = [cell.strip() for cell in table_line.split('|')]
+					# 移除首尾的空元素（由于开头和结尾的 | 导致的）
+					if cells and not cells[0]:
+						cells = cells[1:]
+					if cells and not cells[-1]:
+						cells = cells[:-1]
+					
+					# 跳过分隔行（包含 --- 的行）
+					if not all('-' in cell or not cell.strip() for cell in cells):
+						table_data.append(cells)
+				else:
+					break
+				i += 1
+			
+			if table_data:
+				segments.append(TextSegment("", is_table=True, table_data=table_data))
+			continue
+		
+		# 处理加粗文本
 		parts = re.split(r'(\*\*[^*]+\*\*)', line)
 		for part in parts:
 			if part.startswith('**') and part.endswith('**') and len(part) > 4:
-				# 去掉 ** 标记，设置为加粗
 				bold_text = part[2:-2]
 				if bold_text.strip():
 					segments.append(TextSegment(bold_text, is_bold=True))
 			elif part.strip():
 				segments.append(TextSegment(part))
+		
+		i += 1
 	
 	return segments
+
+
+def render_table(draw: ImageDraw.ImageDraw, table_data: List[List[str]], font: ImageFont.FreeTypeFont, 
+                start_x: int, start_y: int, max_width: int, text_color: Tuple[int, int, int]) -> int:
+	"""渲染表格并返回占用的高度"""
+	if not table_data:
+		return 0
+	
+	# 计算每列的最大宽度
+	col_count = max(len(row) for row in table_data) if table_data else 0
+	col_widths = []
+	
+	for col in range(col_count):
+		max_col_width = 0
+		for row in table_data:
+			if col < len(row):
+				cell_text = row[col]
+				w, _ = _measure_text(draw, cell_text, font)
+				max_col_width = max(max_col_width, w)
+		col_widths.append(max_col_width)
+	
+	# 添加列间距
+	padding = 20
+	total_table_width = sum(col_widths) + padding * (col_count - 1)
+	
+	# 如果表格太宽，按比例缩放列宽
+	if total_table_width > max_width:
+		scale_factor = max_width / total_table_width
+		col_widths = [int(w * scale_factor) for w in col_widths]
+		total_table_width = max_width
+	
+	# 计算行高
+	line_height = font.getbbox("Hg")[3] - font.getbbox("Hg")[1]
+	row_height = line_height + 10  # 添加行间距
+	
+	# 绘制表格
+	current_y = start_y
+	for row_idx, row in enumerate(table_data):
+		current_x = start_x
+		
+		# 绘制每个单元格
+		for col_idx in range(col_count):
+			if col_idx < len(row):
+				cell_text = row[col_idx]
+				
+				# 第一行（表头）加粗
+				if row_idx == 0:
+					cell_font = load_font(font.size, bold=True)
+				else:
+					cell_font = font
+				
+				# 绘制文字
+				draw.text((current_x, current_y), cell_text, fill=text_color, font=cell_font)
+			
+			# 移动到下一列
+			if col_idx < len(col_widths):
+				current_x += col_widths[col_idx] + padding
+		
+		current_y += row_height
+	
+	return current_y - start_y
 
 
 def _measure_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont) -> Tuple[int, int]:
@@ -186,6 +283,23 @@ def render_markdown_text_to_image(md_text: str, options: Optional[RenderOptions]
 	max_width = int(options.width * (1 - 2 * SIDE_MARGIN_RATIO))
 	
 	for segment in segments:
+		# 处理表格
+		if segment.is_table:
+			font_size = base_font_size - 4  # 表格字体稍小
+			font = load_font(font_size, False)
+			
+			# 计算表格位置
+			if options.align == "center":
+				# 表格居中显示
+				table_start_x = x_left
+			else:
+				table_start_x = x_left
+			
+			# 渲染表格
+			table_height = render_table(draw, segment.table_data, font, table_start_x, y_offset, max_width, options.text_color)
+			y_offset += table_height + int(base_font_size * 0.6)  # 表格后增加间距
+			continue
+		
 		# 根据段落类型确定字体大小和样式
 		if segment.is_header:
 			font_size = min(base_font_size + (4 - segment.header_level) * 8, options.max_font_size)
@@ -225,7 +339,7 @@ def render_markdown_text_to_image(md_text: str, options: Optional[RenderOptions]
 		line_spacing = int(font_size * 0.3)
 		
 		if options.align == "center":
-    			# 计算整个文本块的宽度，以此居中整个段落
+			# 计算整个文本块的宽度，以此居中整个段落
 			max_line_width = max(_measure_text(draw, line, font)[0] for line in wrapped_lines) if wrapped_lines else 0
 			block_x = (options.width - max_line_width) // 2
 			
