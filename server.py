@@ -1,6 +1,7 @@
+import asyncio
+import os
 from word2img_mcp.mcp_app import run_server
 from word2img_mcp.render import RenderOptions, render_markdown_text_to_image
-import os
 
 if __name__ == "__main__":
 	# 本地快速验证：渲染示例图片
@@ -10,4 +11,4 @@ if __name__ == "__main__":
 	img.save("outputs/_sample.jpg", format="JPEG", quality=95, subsampling=0, optimize=True)
 	print("Sample saved to outputs/_sample.jpg")
 	# 启动 MCP 服务
-	run_server()
+	asyncio.run(run_server())
