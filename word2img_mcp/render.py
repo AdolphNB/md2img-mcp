@@ -42,6 +42,20 @@ class RenderOptions:
 
 
 def load_font(preferred_size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
+	# 如果需要粗体，优先尝试粗体字体文件
+	if bold:
+		bold_candidates = [
+			"C:\\Windows\\Fonts\\msyhbd.ttc",  # 微软雅黑粗体
+			"C:\\Windows\\Fonts\\simhei.ttf",  # 黑体（本身较粗）
+		]
+		for path in bold_candidates:
+			if os.path.exists(path):
+				try:
+					return ImageFont.truetype(path, preferred_size)
+				except Exception:
+					continue
+	
+	# 常规字体
 	for path in FONT_CANDIDATES:
 		if os.path.exists(path):
 			try:
@@ -81,15 +95,15 @@ def parse_markdown(md_text: str) -> List[TextSegment]:
 				segments.append(TextSegment(text, is_header=True, header_level=level))
 				continue
 		
-		# 处理加粗文本
-		parts = re.split(r'(\*\*.*?\*\*)', line)
+		# 处理加粗文本 - 改进版本
+		parts = re.split(r'(\*\*[^*]+\*\*)', line)
 		for part in parts:
-			if part.startswith('**') and part.endswith('**'):
+			if part.startswith('**') and part.endswith('**') and len(part) > 4:
 				# 去掉 ** 标记，设置为加粗
 				bold_text = part[2:-2]
-				if bold_text:
+				if bold_text.strip():
 					segments.append(TextSegment(bold_text, is_bold=True))
-			elif part:
+			elif part.strip():
 				segments.append(TextSegment(part))
 	
 	return segments
@@ -186,22 +200,23 @@ def render_markdown_text_to_image(md_text: str, options: Optional[RenderOptions]
 		# 加载字体
 		font = load_font(font_size, is_bold)
 		
-		# 文字换行处理
+		# 文字换行处理 - 支持中文字符换行
 		wrapped_lines = []
-		words = segment.text.split()
 		current_line = ""
 		
-		for word in words:
-			test_line = current_line + (" " if current_line else "") + word
+		for char in segment.text:
+			test_line = current_line + char
 			w, _ = _measure_text(draw, test_line, font)
 			if w <= max_width:
 				current_line = test_line
 			else:
 				if current_line:
 					wrapped_lines.append(current_line)
-					current_line = word
+					current_line = char
 				else:
-					wrapped_lines.append(word)
+					# 单个字符就超宽，强制添加
+					wrapped_lines.append(char)
+					current_line = ""
 		if current_line:
 			wrapped_lines.append(current_line)
 		
