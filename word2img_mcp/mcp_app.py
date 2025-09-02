@@ -28,7 +28,7 @@ async def handle_list_tools() -> list[types.Tool]:
                     "markdown_text": {"type": "string", "description": "要渲染的Markdown文本"},
                     "align": {"type": "string", "enum": ["center", "left"], "default": "center", "description": "文本对齐方式"},
                     "bold": {"type": "boolean", "default": False, "description": "是否加粗显示"},
-                    "width": {"type": "integer", "default": 1200, "description": "图片宽度（高度按3:4比例计算）"}
+                    "width": {"type": "integer", "default": 1080, "description": "图片宽度（高度按3:4比例计算）"}
                 },
                 "required": ["markdown_text"]
             }
@@ -54,7 +54,7 @@ async def handle_call_tool(name: str, arguments: dict[str, Any]) -> list[types.T
         markdown_text = arguments["markdown_text"]
         align = arguments.get("align", "center")
         bold = arguments.get("bold", False)
-        width = arguments.get("width", 1200)
+        width = arguments.get("width", 1080)
         
         height = int(width * ASPECT_RATIO[1] / ASPECT_RATIO[0])
         options = RenderOptions(width=width, height=height, align=align, bold=bold)

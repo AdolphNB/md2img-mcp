@@ -5,20 +5,24 @@ from typing import Optional, Tuple
 from PIL import Image, ImageDraw, ImageFont
 
 ASPECT_RATIO = (3, 4)
-DEFAULT_WIDTH = 1200
-DEFAULT_HEIGHT = int(DEFAULT_WIDTH * ASPECT_RATIO[1] / ASPECT_RATIO[0])
+DEFAULT_WIDTH = 1080
+DEFAULT_HEIGHT = 1440
 DEFAULT_BG = (255, 255, 255)
 DEFAULT_TEXT_COLOR = (20, 20, 20)
 
-SIDE_MARGIN_RATIO = 0.08
-TOP_BOTTOM_MARGIN_RATIO = 0.08
-LINE_SPACING_RATIO = 0.38
+SIDE_MARGIN_RATIO = 0.06
+TOP_BOTTOM_MARGIN_RATIO = 0.06
+LINE_SPACING_RATIO = 0.35
 MAX_LINE_WIDTH_RATIO = 1.0 - (SIDE_MARGIN_RATIO * 2)
 
 FONT_CANDIDATES = [
-	"C:\\Windows\\Fonts\\msyh.ttc",
-	"C:\\Windows\\Fonts\\simhei.ttf",
-	"C:\\Windows\\Fonts\\simfang.ttf",
+	"C:\\Windows\\Fonts\\msyh.ttc",  # 微软雅黑
+	"C:\\Windows\\Fonts\\msyhbd.ttc",  # 微软雅黑粗体
+	"C:\\Windows\\Fonts\\simhei.ttf",  # 黑体
+	"C:\\Windows\\Fonts\\simsun.ttc",  # 宋体
+	"C:\\Windows\\Fonts\\simkai.ttf",  # 楷体
+	"C:\\Windows\\Fonts\\simfang.ttf",  # 仿宋
+	"C:\\Windows\\Fonts\\STXIHEI.TTF",  # 华文细黑
 	"/System/Library/Fonts/PingFang.ttc",
 	"/System/Library/Fonts/STHeiti Light.ttc",
 	"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -31,8 +35,8 @@ class RenderOptions:
 	background: Tuple[int, int, int] = DEFAULT_BG
 	text_color: Tuple[int, int, int] = DEFAULT_TEXT_COLOR
 	align: str = "center"
-	max_font_size: int = 72
-	min_font_size: int = 24
+	max_font_size: int = 400
+	min_font_size: int = 200
 	bold: bool = False
 
 
@@ -40,10 +44,13 @@ def load_font(preferred_size: int, bold: bool = False) -> ImageFont.FreeTypeFont
 	for path in FONT_CANDIDATES:
 		if os.path.exists(path):
 			try:
-				return ImageFont.truetype(path, preferred_size, layout_engine=ImageFont.LAYOUT_BASIC)
+				return ImageFont.truetype(path, preferred_size)
 			except Exception:
 				continue
-	return ImageFont.load_default()
+	try:
+		return ImageFont.load_default(size=preferred_size)
+	except:
+		return ImageFont.load_default()
 
 
 def _measure_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont) -> Tuple[int, int]:
@@ -88,7 +95,7 @@ def measure_wrapped_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.F
 def auto_fit_font_size(text: str, options: RenderOptions):
 	img = Image.new("RGB", (options.width, options.height), options.background)
 	draw = ImageDraw.Draw(img)
-	for size in range(options.max_font_size, options.min_font_size - 1, -2):
+	for size in range(options.max_font_size, options.min_font_size - 1, -4):
 		font = load_font(size, options.bold)
 		wrapped, max_w, line_h, num_lines = measure_wrapped_text(
 			draw, text, font, int(options.width * (1 - 2 * SIDE_MARGIN_RATIO))
