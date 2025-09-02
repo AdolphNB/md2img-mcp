@@ -1,0 +1,4 @@
+Pillow==10.3.0
+markdown-it-py==3.0.0
+beautifulsoup4==4.12.3
+modelcontextprotocol==0.1.0

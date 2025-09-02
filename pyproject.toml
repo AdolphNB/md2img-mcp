@@ -1,0 +1,16 @@
+[project]
+name = "word2img-mcp"
+version = "0.1.0"
+description = "MCP service to render Markdown text into 3:4 JPG images"
+authors = [{ name = "mcp" }]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+	"Pillow>=11.0.0,<12",
+	"markdown-it-py==3.0.0",
+	"beautifulsoup4==4.12.3",
+	"mcp[cli]>=1.12.2",
+]
+
+[tool.uv]
+# uv will read [project] dependencies; this section left for future settings.
