@@ -220,19 +220,24 @@ def render_markdown_text_to_image(md_text: str, options: Optional[RenderOptions]
 		if current_line:
 			wrapped_lines.append(current_line)
 		
-		# 绘制文本
+		# 绘制文本 - 修复居中逻辑
 		line_height = font.getbbox("Hg")[3] - font.getbbox("Hg")[1]
 		line_spacing = int(font_size * 0.3)
 		
-		for line in wrapped_lines:
-			w, _ = _measure_text(draw, line, font)
-			if options.align == "center":
-				x = (options.width - w) // 2
-			else:
-				x = x_left
+		if options.align == "center":
+    			# 计算整个文本块的宽度，以此居中整个段落
+			max_line_width = max(_measure_text(draw, line, font)[0] for line in wrapped_lines) if wrapped_lines else 0
+			block_x = (options.width - max_line_width) // 2
 			
-			draw.text((x, y_offset), line, fill=options.text_color, font=font)
-			y_offset += line_height + line_spacing
+			for line in wrapped_lines:
+				# 每行在段落内左对齐，但整个段落居中
+				draw.text((block_x, y_offset), line, fill=options.text_color, font=font)
+				y_offset += line_height + line_spacing
+		else:
+			# 左对齐
+			for line in wrapped_lines:
+				draw.text((x_left, y_offset), line, fill=options.text_color, font=font)
+				y_offset += line_height + line_spacing
 		
 		# 段落间距
 		y_offset += int(font_size * 0.4)
