@@ -132,6 +132,23 @@ uv run python server.py
 }
 ```
 
+**Windows uv 目录方式示例**：
+```json
+{
+  "mcpServers": {
+    "word2img-mcp": {
+      "command": "uv",
+      "args": [
+        "--directory", 
+        "D:\\mcpServer\\word2img-mcp", 
+        "run", 
+        "start_mcp_server.py"
+      ]
+    }
+  }
+}
+```
+
 **macOS/Linux 完整示例**：
 ```json
 {

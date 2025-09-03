@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "word2img-mcp": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "D:\\mcpServer\\word2img-mcp",
+        "run",
+        "start_mcp_server.py"
+      ]
+    }
+  }
+}
