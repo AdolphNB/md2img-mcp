@@ -240,11 +240,42 @@ async def _handle_get_image(arguments: dict[str, Any]) -> list[types.TextContent
             b = f.read()
         b64_data = base64.b64encode(b).decode("utf-8")
         
-        result = {"image_data": b64_data, "format": os.path.splitext(path)[1][1:]}
+        # 获取图片格式
+        format_ext = os.path.splitext(path)[1][1:].lower()
+        if format_ext == 'jpg':
+            format_ext = 'jpeg'  # 标准化格式名称
+        
+        # 构建完整的 Data URL
+        data_url = f"data:image/{format_ext};base64,{b64_data}"
+        
+        # 构建响应内容
+        content_list = []
+        
+        # 添加图片内容（用于在会话中直接显示）
+        content_list.append(types.ImageContent(
+            type="image",
+            data=b64_data,
+            mimeType=f"image/{format_ext}"
+        ))
+        
+        # 添加文本信息
+        result = {
+            "image_data": b64_data,
+            "data_url": data_url,
+            "format": format_ext,
+            "file_path": path,
+            "file_size": os.path.getsize(path),
+            "display_info": "图片已在上方显示"
+        }
         if include_metadata:
             result["metadata"] = _get_image_metadata(path)
         
-        return [types.TextContent(type="text", text=json.dumps(result, ensure_ascii=False))]
+        content_list.append(types.TextContent(
+            type="text", 
+            text=json.dumps(result, ensure_ascii=False, indent=2)
+        ))
+        
+        return content_list
     
     except Exception as e:
         error_details = {
