@@ -142,11 +142,10 @@ async def _handle_submit_markdown(arguments: dict[str, Any]) -> list[types.TextC
         options = RenderOptions(
             width=width,
             height=height,
-            align=align,
-            bold=bold,
             background_color=background_color,
             text_color=text_color,
             accent_color=accent_color,
+            align=align,
             font_family=font_family,
             font_size=font_size,
             line_height=line_height,
@@ -155,12 +154,14 @@ async def _handle_submit_markdown(arguments: dict[str, Any]) -> list[types.TextC
             shadow=shadow,
             watermark=watermark,
             watermark_text=watermark_text,
-            output_format=output_format,
-            quality=quality,
-            backend_preference=backend_preference
+            output_format=output_format
         )
         
-        img = render_markdown_text_to_image(markdown_text, options)
+        img_path = render_markdown_text_to_image(markdown_text, options)
+        
+        # Load the generated image
+        from PIL import Image
+        img = Image.open(img_path)
         
         # Prepare options for storage
         storage_options = {
@@ -182,10 +183,19 @@ async def _handle_submit_markdown(arguments: dict[str, Any]) -> list[types.TextC
             "output_format": output_format,
             "quality": quality,
             "backend_preference": backend_preference,
-            "backend_used": getattr(options, 'backend_used', 'unknown')
+            "backend_used": getattr(options, 'backend_used', 'unknown'),
+            "original_path": img_path
         }
         
         task_id = _store.save_image(img, format=output_format, options=storage_options)
+        
+        # Clean up the temporary file if it's different from the stored one
+        try:
+            stored_path = _store.get_path(task_id)
+            if img_path != stored_path and os.path.exists(img_path):
+                os.remove(img_path)
+        except:
+            pass  # Ignore cleanup errors
         
         # 返回详细的任务信息
         task_info = {

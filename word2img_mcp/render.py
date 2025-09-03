@@ -948,3 +948,47 @@ def render_markdown_text_to_image(md_text: str, options: Optional[RenderOptions]
 def render_markdown_text_to_image_legacy(md_text: str, options: Optional[RenderOptions] = None):
     """兼容原有接口的渲染函数"""
     return render_markdown_text_to_image(md_text, options)
+
+def get_available_backends():
+    """获取可用的渲染后端"""
+    backends = {}
+    
+    # 检查 imgkit
+    try:
+        import imgkit
+        backends['imgkit'] = {'available': True, 'version': 'installed'}
+    except ImportError:
+        backends['imgkit'] = {'available': False, 'error': 'not installed'}
+    
+    # 检查 PIL
+    backends['pil'] = {'available': PIL_AVAILABLE}
+    
+    # 检查 markdown
+    backends['markdown'] = {'available': IMGKIT_AVAILABLE}
+    
+    return backends
+
+def get_renderer_status():
+    """获取渲染器状态"""
+    return {
+        'default_backend': 'imgkit-wkhtmltopdf',
+        'fallback_available': PIL_AVAILABLE,
+        'total_backends': len(['imgkit-wkhtmltopdf', 'markdown-pdf-cli', 'md-to-image-cli', 'md-to-image-api', 'pil-fallback'])
+    }
+
+def get_backend_details():
+    """获取后端详细信息"""
+    return {
+        'imgkit': {
+            'name': 'imgkit/wkhtmltopdf',
+            'priority': 1,
+            'available': IMGKIT_AVAILABLE,
+            'description': 'HTML rendering engine with wkhtmltopdf'
+        },
+        'pil': {
+            'name': 'PIL/Pillow',
+            'priority': 4,
+            'available': PIL_AVAILABLE,
+            'description': 'Python Imaging Library fallback'
+        }
+    }
