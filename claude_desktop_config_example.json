@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "word2img-mcp": {
+      "command": "uv",
+      "args": [
+        "run", 
+        "python", 
+        "-m", 
+        "word2img_mcp"
+      ],
+      "cwd": "/path/to/your/word2img-mcp",
+      "env": {
+        "UV_PROJECT_ENVIRONMENT": ".venv"
+      }
+    }
+  }
+}
