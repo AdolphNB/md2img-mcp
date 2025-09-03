@@ -36,7 +36,7 @@ async def handle_list_tools() -> list[types.Tool]:
                     "text_color": {"type": "string", "default": "#000000", "description": "文字颜色，支持HEX、RGB、RGBA格式"},
                     "accent_color": {"type": "string", "default": "#4682B4", "description": "强调色，用于链接、代码块等"},
                     "font_family": {"type": "string", "default": "Microsoft YaHei, PingFang SC, Helvetica Neue, Arial, sans-serif", "description": "字体家族"},
-                    "font_size": {"type": "integer", "default": 16, "minimum": 8, "maximum": 48, "description": "基础字体大小（像素）"},
+                    "font_size": {"type": "integer", "default": 20, "minimum": 8, "maximum": 48, "description": "基础字体大小（像素）"},
                     "line_height": {"type": "number", "default": 1.6, "minimum": 1.0, "maximum": 3.0, "description": "行高倍数"},
                     "header_scale": {"type": "number", "default": 1.5, "minimum": 1.0, "maximum": 3.0, "description": "标题字体缩放比例"},
                     "theme": {"type": "string", "enum": ["default", "dark", "light", "professional", "casual"], "default": "default", "description": "主题样式"},
@@ -130,7 +130,7 @@ async def _handle_submit_markdown(arguments: dict[str, Any]) -> list[types.TextC
         text_color = arguments.get("text_color", "#000000")
         accent_color = arguments.get("accent_color", "#4682B4")
         font_family = arguments.get("font_family", "Microsoft YaHei, PingFang SC, Helvetica Neue, Arial, sans-serif")
-        font_size = arguments.get("font_size", 16)
+        font_size = arguments.get("font_size", 20)
         line_height = arguments.get("line_height", 1.6)
         header_scale = arguments.get("header_scale", 1.5)
         theme = arguments.get("theme", "default")

@@ -72,7 +72,7 @@ class RenderOptions:
     text_color: str = "#000000"
     accent_color: str = "#4682B4"
     font_family: str = "Microsoft YaHei, PingFang SC, Helvetica Neue, Arial, sans-serif"
-    font_size: int = 16
+    font_size: int = 20
     line_height: float = 1.6
     header_scale: float = 1.5
     theme: str = "default"
