@@ -52,13 +52,15 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="get_image",
-            description="根据任务ID返回图片和详细信息。可选base64返回或文件路径",
+            description="根据任务ID返回图片和详细信息。智能处理大文件以避免token限制",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "task_id": {"type": "string", "description": "任务ID"},
                     "as_base64": {"type": "boolean", "default": True, "description": "是否返回base64编码（否则返回文件路径）"},
-                    "include_metadata": {"type": "boolean", "default": False, "description": "是否包含图片元数据信息"}
+                    "include_metadata": {"type": "boolean", "default": False, "description": "是否包含图片元数据信息"},
+                    "show_in_chat": {"type": "boolean", "default": True, "description": "是否在会话中显示图片"},
+                    "include_full_base64": {"type": "boolean", "default": False, "description": "是否包含完整base64数据（大文件可能导致token限制）"}
                 },
                 "required": ["task_id"]
             }
@@ -220,53 +222,115 @@ async def _handle_submit_markdown(arguments: dict[str, Any]) -> list[types.TextC
 
 
 async def _handle_get_image(arguments: dict[str, Any]) -> list[types.TextContent]:
-    """Handle get_image tool with detailed metadata."""
+    """Handle get_image tool with size optimization to avoid token limits."""
     try:
         task_id = arguments["task_id"]
         as_base64 = arguments.get("as_base64", True)
         include_metadata = arguments.get("include_metadata", False)
+        # 新增参数：控制是否在会话中显示图片
+        show_in_chat = arguments.get("show_in_chat", True)
+        # 新增参数：控制是否包含完整的 base64 数据
+        include_full_base64 = arguments.get("include_full_base64", False)
         
         path = _store.get_path(task_id)
         if not path or not os.path.exists(path):
             raise ValueError(f"任务ID无效或图片不存在: {task_id}")
         
+        # 获取文件大小信息
+        file_size = os.path.getsize(path)
+        
         if not as_base64:
-            result = {"file_path": path}
+            result = {
+                "file_path": path,
+                "file_size": file_size,
+                "display_info": "仅返回文件路径，未包含图片数据"
+            }
             if include_metadata:
                 result["metadata"] = _get_image_metadata(path)
             return [types.TextContent(type="text", text=json.dumps(result, ensure_ascii=False))]
         
+        # 读取图片数据
         with open(path, "rb") as f:
             b = f.read()
-        b64_data = base64.b64encode(b).decode("utf-8")
         
         # 获取图片格式
         format_ext = os.path.splitext(path)[1][1:].lower()
         if format_ext == 'jpg':
             format_ext = 'jpeg'  # 标准化格式名称
         
-        # 构建完整的 Data URL
-        data_url = f"data:image/{format_ext};base64,{b64_data}"
-        
-        # 构建响应内容
         content_list = []
         
-        # 添加图片内容（用于在会话中直接显示）
-        content_list.append(types.ImageContent(
-            type="image",
-            data=b64_data,
-            mimeType=f"image/{format_ext}"
-        ))
+        # 根据文件大小决定处理方式
+        if file_size > 50 * 1024:  # 如果文件大于 50KB，采用保守策略
+            if show_in_chat and not include_full_base64:
+                # 只在会话中显示图片，不返回完整 base64 数据
+                b64_data = base64.b64encode(b).decode("utf-8")
+                content_list.append(types.ImageContent(
+                    type="image",
+                    data=b64_data,
+                    mimeType=f"image/{format_ext}"
+                ))
+                
+                # 返回简化的文本信息（不包含完整 base64）
+                result = {
+                    "format": format_ext,
+                    "file_path": path,
+                    "file_size": file_size,
+                    "display_info": "图片已在上方显示，为避免 token 限制未返回完整 base64 数据",
+                    "data_url_info": f"完整 data URL 长度约 {len(b64_data) + 50} 字符",
+                    "note": "如需完整 base64 数据，请设置 include_full_base64=true"
+                }
+            elif include_full_base64:
+                # 用户明确要求完整数据（可能导致 token 限制）
+                b64_data = base64.b64encode(b).decode("utf-8")
+                data_url = f"data:image/{format_ext};base64,{b64_data}"
+                
+                if show_in_chat:
+                    content_list.append(types.ImageContent(
+                        type="image",
+                        data=b64_data,
+                        mimeType=f"image/{format_ext}"
+                    ))
+                
+                result = {
+                    "image_data": b64_data,
+                    "data_url": data_url,
+                    "format": format_ext,
+                    "file_path": path,
+                    "file_size": file_size,
+                    "display_info": "已返回完整数据",
+                    "warning": f"大文件 ({file_size//1024}KB) 可能导致 token 限制问题"
+                }
+            else:
+                # 只返回文件信息，不显示图片
+                result = {
+                    "format": format_ext,
+                    "file_path": path,
+                    "file_size": file_size,
+                    "display_info": f"文件较大 ({file_size//1024}KB)，未显示图片以避免 token 限制",
+                    "note": "设置 show_in_chat=true 可在会话中显示图片（不含 base64 数据）"
+                }
+        else:
+            # 小文件处理：正常返回所有数据
+            b64_data = base64.b64encode(b).decode("utf-8")
+            data_url = f"data:image/{format_ext};base64,{b64_data}"
+            
+            if show_in_chat:
+                content_list.append(types.ImageContent(
+                    type="image",
+                    data=b64_data,
+                    mimeType=f"image/{format_ext}"
+                ))
+            
+            result = {
+                "image_data": b64_data,
+                "data_url": data_url,
+                "format": format_ext,
+                "file_path": path,
+                "file_size": file_size,
+                "display_info": "小文件，已返回完整数据"
+            }
         
-        # 添加文本信息
-        result = {
-            "image_data": b64_data,
-            "data_url": data_url,
-            "format": format_ext,
-            "file_path": path,
-            "file_size": os.path.getsize(path),
-            "display_info": "图片已在上方显示"
-        }
         if include_metadata:
             result["metadata"] = _get_image_metadata(path)
         
