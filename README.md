@@ -69,13 +69,110 @@ uv run python test_imgkit_backend.py
 ```
 
 ### 作为 MCP 服务
-- 直接运行：
+
+#### 启动服务
 ```bash
+# 方法 1: 使用启动脚本（推荐）
+uv run python start_mcp_server.py
+
+# 方法 2: 使用模块方式
+uv run python -m word2img_mcp
+
+# 方法 3: 直接运行
 uv run python server.py
 ```
-- 客户端按 MCP 方式注册该服务后，可调用工具：
-  - submit_markdown(markdown_text, align='center'|'left', bold=False, width=1200) -> task_id
-  - get_image(task_id, as_base64=True|False) -> base64字符串或文件路径
+
+#### MCP 客户端配置
+
+**Claude Desktop 配置**
+
+1. 找到 Claude Desktop 配置文件：
+   - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+   - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - **Linux**: `~/.config/claude/claude_desktop_config.json`
+
+2. 编辑配置文件，添加以下内容：
+
+```json
+{
+  "mcpServers": {
+    "word2img-mcp": {
+      "command": "uv",
+      "args": [
+        "run", 
+        "python", 
+        "-m", 
+        "word2img_mcp"
+      ],
+      "cwd": "/path/to/your/word2img-mcp",
+      "env": {
+        "UV_PROJECT_ENVIRONMENT": ".venv"
+      }
+    }
+  }
+}
+```
+
+**配置说明**：
+- `command`: 使用 `uv` 命令
+- `args`: 运行参数，启动 word2img_mcp 模块
+- `cwd`: **请修改为您的项目实际路径**
+- `env`: 环境变量设置（可选）
+
+**Windows 完整示例**：
+```json
+{
+  "mcpServers": {
+    "word2img-mcp": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "word2img_mcp"],
+      "cwd": "D:\\mcpServer\\word2img-mcp"
+    }
+  }
+}
+```
+
+**macOS/Linux 完整示例**：
+```json
+{
+  "mcpServers": {
+    "word2img-mcp": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "word2img_mcp"],
+      "cwd": "/Users/username/word2img-mcp"
+    }
+  }
+}
+```
+
+3. 重启 Claude Desktop
+4. 在对话中可以使用以下工具：
+   - `submit_markdown`: 提交 Markdown 文本生成图片
+   - `get_image`: 获取生成的图片
+
+> 💡 **提示**: 可以参考项目根目录的 [`claude_desktop_config_example.json`](claude_desktop_config_example.json) 示例文件
+
+#### 验证配置
+
+配置完成后，在 Claude Desktop 中发送消息验证：
+
+```
+请帮我把以下 Markdown 转换为图片：
+
+# 测试标题
+这是一个 **测试** 文档，用来验证 MCP 服务是否正常工作。
+
+- 功能测试
+- 样式测试
+
+表格测试：
+| 项目 | 状态 |
+|------|------|
+| MCP 配置 | ✅ |
+| 图片生成 | ✅ |
+```
+
+如果配置成功，Claude 会自动调用 MCP 服务生成图片。
 
 ## 🎨 样式配置
 
@@ -94,6 +191,7 @@ uv run python server.py
 
 ## 📚 详细文档
 
+- **[MCP 服务使用指南](MCP_SERVICE_GUIDE.md)** - 完整的 MCP 服务配置和使用说明
 - **[imgkit/wkhtmltopdf 使用指南](IMGKIT_USAGE.md)** - 完整的安装和使用说明
 - **[实现总结](IMPLEMENTATION_SUMMARY.md)** - 技术实现详细说明
 
