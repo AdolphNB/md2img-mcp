@@ -1,8 +1,14 @@
+from __future__ import annotations
 import os
 import re
 import tempfile
 import subprocess
-import requests
+# 延迟导入 requests，避免在未安装时阻断其他后端
+try:
+    import requests  # type: ignore
+    REQUESTS_AVAILABLE = True
+except Exception:
+    REQUESTS_AVAILABLE = False
 import base64
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Dict, Any
@@ -487,6 +493,8 @@ class MarkdownRenderer:
     
     def _render_with_api(self, text: str, options: RenderOptions) -> str:
         """使用HTTP API渲染"""
+        if not REQUESTS_AVAILABLE:
+            raise RuntimeError("requests 不可用，无法使用 md-to-image API 后端")
         try:
             # 准备请求数据
             payload = {
@@ -520,7 +528,7 @@ class MarkdownRenderer:
             else:
                 raise RuntimeError(f"API调用失败: {response.status_code} - {response.text}")
                 
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             raise RuntimeError(f"API请求失败: {e}")
     
     def _render_with_pil(self, text: str, options: RenderOptions) -> str:
@@ -608,7 +616,7 @@ class MarkdownRenderer:
         
         return str(output_file)
     
-    def _load_font(self, size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
+    def _load_font(self, size: int, bold: bool = False):
         """加载字体"""
         font_candidates = [
             "C:\\Windows\\Fonts\\msyh.ttc",  # 微软雅黑
@@ -717,7 +725,7 @@ class MarkdownRenderer:
         
         return segments
     
-    def _wrap_text(self, draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, max_width: int) -> List[str]:
+    def _wrap_text(self, draw, text: str, font, max_width: int) -> List[str]:
         """文本换行"""
         lines = []
         current = ""
@@ -741,7 +749,7 @@ class MarkdownRenderer:
             lines.append(current)
         return lines
     
-    def _measure_text(self, draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont) -> Tuple[int, int]:
+    def _measure_text(self, draw, text: str, font) -> Tuple[int, int]:
         """测量文本尺寸"""
         try:
             bbox = draw.textbbox((0, 0), text, font=font)
@@ -750,7 +758,7 @@ class MarkdownRenderer:
             bbox = font.getbbox(text)
             return bbox[2] - bbox[0], bbox[3] - bbox[1]
     
-    def _render_table(self, draw: ImageDraw.ImageDraw, table_data: List[List[str]], font: ImageFont.FreeTypeFont,
+    def _render_table(self, draw, table_data: List[List[str]], font,
                      start_x: int, start_y: int, max_width: int, text_color: Tuple[int, int, int]) -> int:
         """渲染表格"""
         if not table_data:

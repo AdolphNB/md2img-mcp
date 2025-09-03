@@ -46,7 +46,12 @@ def main():
         # 启动服务
         asyncio.run(run_server())
     except KeyboardInterrupt:
-        print("\n👋 服务已停止")
+        # 终止时避免在已关闭的 stdout 上输出导致异常
+        try:
+            print("\n👋 服务已停止")
+        except Exception:
+            pass
+        return
     except Exception as e:
         print(f"\n❌ 服务启动失败: {e}")
         sys.exit(1)
