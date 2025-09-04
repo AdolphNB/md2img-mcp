@@ -22,7 +22,12 @@ from fastapi.middleware.cors import CORSMiddleware
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-from word2img_mcp.mcp_app import server, _store
+from word2img_mcp.mcp_app import (
+    server,
+    _store,
+    handle_list_tools as mcp_list_tools_handler,
+    handle_call_tool as mcp_call_tool_handler,
+)
 from mcp import types
 from mcp.server.models import InitializationOptions
 
@@ -142,7 +147,7 @@ class MCPHTTPHandler:
     async def handle_list_tools(self, request_id: int) -> Dict[str, Any]:
         """处理工具列表请求"""
         try:
-            tools = await mcp_server.list_tools()
+            tools = await mcp_list_tools_handler()
             
             # 转换工具格式
             tools_data = []
@@ -188,7 +193,7 @@ class MCPHTTPHandler:
                 }
             
             # 调用MCP服务器的工具处理函数
-            result_content = await mcp_server.call_tool(tool_name, arguments)
+            result_content = await mcp_call_tool_handler(tool_name, arguments)
             
             # 转换结果格式
             content_data = []
@@ -325,7 +330,7 @@ async def sse_endpoint(request: Request):
                 await asyncio.sleep(30)  # 每30秒发送一次心跳
         except asyncio.CancelledError:
             logger.info("SSE连接已断开")
-            break
+            return
     
     return StreamingResponse(
         event_generator(),

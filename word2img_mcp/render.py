@@ -627,7 +627,7 @@ class MarkdownRenderer:
                 'width': options.width,
                 'height': options.height,
                 'theme': options.theme,
-                'background': options.background,
+                'background': options.background_color,
                 'text_color': options.text_color,
                 'accent_color': options.accent_color
             }
@@ -664,7 +664,7 @@ class MarkdownRenderer:
         segments = self._parse_markdown(text)
         
         # 创建图片
-        img = Image.new("RGB", (options.width, options.height), options.background)
+        img = Image.new("RGB", (options.width, options.height), options.background_color)
         draw = ImageDraw.Draw(img)
         
         # 计算基础字体大小
