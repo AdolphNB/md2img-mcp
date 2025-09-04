@@ -8,6 +8,7 @@ from typing import Any
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp import types
+from fastmcp import FastMCP
 
 from .render import ASPECT_RATIO, RenderOptions, render_markdown_text_to_image
 from .store import ImageStore
